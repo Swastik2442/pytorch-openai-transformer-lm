@@ -67,7 +67,7 @@ class TextEncoder(object):
                     j = word.index(first, i)
                     new_word.extend(word[i:j])
                     i = j
-                except IndexError:
+                except (IndexError, ValueError):
                     new_word.extend(word[i:])
                     break
 
@@ -80,8 +80,7 @@ class TextEncoder(object):
             word = tuple(new_word)
             if len(word) == 1:
                 break
-            else:
-                pairs = get_pairs(word)
+            pairs = get_pairs(word)
         word_str = ' '.join(word)
         if word_str == '\n  </w>':
             word_str = '\n</w>'
@@ -95,13 +94,17 @@ class TextEncoder(object):
                 text = self.nlp(text_standardize(ftfy.fix_text(text)))
                 text_tokens = []
                 for token in text:
-                    text_tokens.extend([self.encoder.get(t, 0) for t in self.bpe(token.text.lower()).split(' ')])
+                    text_tokens.extend([
+                        self.encoder.get(t, 0) for t in self.bpe(token.text.lower()).split(' ')
+                    ])
                 texts_tokens.append(text_tokens)
         else:
             for text in texts:
                 text = self.nlp(text_standardize(ftfy.fix_text(text)))
                 text_tokens = []
                 for token in text:
-                    text_tokens.extend([self.encoder.get(t, 0) for t in self.bpe(token.text.lower()).split(' ')])
+                    text_tokens.extend([
+                        self.encoder.get(t, 0) for t in self.bpe(token.text.lower()).split(' ')
+                    ])
                 texts_tokens.append(text_tokens)
         return texts_tokens
