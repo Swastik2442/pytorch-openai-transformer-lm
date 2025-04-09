@@ -16,6 +16,8 @@ class GenerateText:
             save_dir = kwargs.get('save_dir', 'save/'),
             data_dir = kwargs.get('data_dir', 'data/'),
             submission_dir = kwargs.get('submission_dir', 'submission/'),
+            path_model = kwargs.get('path_model', './model/'),
+            path_names = kwargs.get('path_names', './'),
             submit = kwargs.get('submit', True),
             analysis = kwargs.get('analysis', True),
             seed = kwargs.get('seed', 42),
@@ -65,7 +67,13 @@ class GenerateText:
         vocab = self.n_vocab + self.n_special + n_ctx
 
         self.lm_model = LMModel(self.args, vocab, n_ctx, return_probs=True)
-        load_openai_pretrained_model(self.lm_model.transformer, n_ctx=n_ctx, n_special=self.n_special)
+        load_openai_pretrained_model(
+            self.lm_model.transformer,
+            n_ctx=n_ctx,
+            n_special=self.n_special,
+            path=self.args.path_model,
+            path_names=self.args.path_names
+        )
         self.lm_model.to(self.device)
 
     def make_batch(self, X):
