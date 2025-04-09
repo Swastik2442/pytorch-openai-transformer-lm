@@ -1,11 +1,11 @@
 import re
-import ftfy
 import json
-import spacy
 
+import ftfy
+import spacy
 from tqdm import tqdm
 
-def get_pairs(word):
+def get_pairs(word: tuple[str, ...]):
     """
     Return set of symbol pairs in a word.
     word is represented as tuple of symbols (symbols being variable-length strings)
@@ -17,7 +17,7 @@ def get_pairs(word):
         prev_char = char
     return pairs
 
-def text_standardize(text):
+def text_standardize(text: str):
     """
     fixes some issues the spacy tokenizer had on books corpus
     also does some whitespace standardization
@@ -38,12 +38,12 @@ class TextEncoder(object):
     """
 
     def __init__(self, encoder_path, bpe_path):
-        self.nlp = spacy.load('en', disable=['parser', 'tagger', 'ner', 'textcat'])
+        self.nlp = spacy.load('en_core_web_sm', disable=['parser', 'tagger', 'ner', 'textcat'])
         self.encoder = json.load(open(encoder_path))
         self.decoder = {v:k for k,v in self.encoder.items()}
         merges = open(bpe_path, encoding='utf-8').read().split('\n')[1:-1]
-        merges = [tuple(merge.split()) for merge in merges]
-        self.bpe_ranks = dict(zip(merges, range(len(merges))))
+        merges2 = [tuple(merge.split()) for merge in merges]
+        self.bpe_ranks = dict(zip(merges2, range(len(merges2))))
         self.cache = {}
 
     def bpe(self, token):
@@ -60,14 +60,14 @@ class TextEncoder(object):
             if bigram not in self.bpe_ranks:
                 break
             first, second = bigram
-            new_word = []
+            new_word: list[str] = []
             i = 0
             while i < len(word):
                 try:
                     j = word.index(first, i)
                     new_word.extend(word[i:j])
                     i = j
-                except:
+                except IndexError:
                     new_word.extend(word[i:])
                     break
 
@@ -77,17 +77,16 @@ class TextEncoder(object):
                 else:
                     new_word.append(word[i])
                     i += 1
-            new_word = tuple(new_word)
-            word = new_word
+            word = tuple(new_word)
             if len(word) == 1:
                 break
             else:
                 pairs = get_pairs(word)
-        word = ' '.join(word)
-        if word == '\n  </w>':
-            word = '\n</w>'
-        self.cache[token] = word
-        return word
+        word_str = ' '.join(word)
+        if word_str == '\n  </w>':
+            word_str = '\n</w>'
+        self.cache[token] = word_str
+        return word_str
 
     def encode(self, texts, verbose=True):
         texts_tokens = []

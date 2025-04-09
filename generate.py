@@ -1,10 +1,8 @@
 import argparse
-import os
 import random
 
 import numpy as np
 import torch
-import torch.nn as nn
 
 from model_pytorch import LMModel, load_openai_pretrained_model
 from text_utils import TextEncoder
@@ -18,8 +16,8 @@ def make_batch(X):
     pos_enc = np.arange(n_vocab + n_special, n_vocab + n_special + X.shape[-1])
     pos_enc = np.expand_dims(pos_enc, axis=0)
     batch = np.stack([X, pos_enc], axis=-1)
-    batch = torch.tensor(batch, dtype=torch.long).to(device)
-    return batch
+    batch_tensor = torch.tensor(batch, dtype=torch.long).to(device)
+    return batch_tensor
 
 def append_batch(X, next_idx):
     next_pos = X[:, -1:, 1] + 1

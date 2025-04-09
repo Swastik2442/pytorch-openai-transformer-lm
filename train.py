@@ -13,8 +13,7 @@ from datasets import rocstories
 from model_pytorch import DoubleHeadModel, load_openai_pretrained_model
 from opt import OpenAIAdam
 from text_utils import TextEncoder
-from utils import (encode_dataset, iter_data,
-                   ResultLogger, make_path)
+from utils import encode_dataset, iter_data, ResultLogger, make_path
 from loss import MultipleChoiceLossCompute
 
 def transform_roc(X1, X2, X3):
@@ -62,10 +61,10 @@ def iter_predict(Xs, Ms):
     logits = []
     with torch.no_grad():
         dh_model.eval()
-        for xmb, mmb in iter_data(Xs, Ms, n_batch=n_batch_train, truncate=False, verbose=True):
-            n = len(xmb)
+        for xmb, _mmb in iter_data(Xs, Ms, n_batch=n_batch_train, truncate=False, verbose=True):
+            # n = len(xmb)
             XMB = torch.tensor(xmb, dtype=torch.long).to(device)
-            MMB = torch.tensor(mmb).to(device)
+            # MMB = torch.tensor(mmb).to(device)
             _, clf_logits = dh_model(XMB)
             logits.append(clf_logits.to("cpu").numpy())
     logits = np.concatenate(logits, 0)
@@ -81,7 +80,11 @@ def log(save_dir, desc):
     va_cost = va_cost / n_valid
     tr_acc = accuracy_score(trY[:n_valid], np.argmax(tr_logits, 1)) * 100.
     va_acc = accuracy_score(vaY, np.argmax(va_logits, 1)) * 100.
-    logger.log(n_epochs=n_epochs, n_updates=n_updates, tr_cost=tr_cost, va_cost=va_cost, tr_acc=tr_acc, va_acc=va_acc)
+    logger.log(
+        n_epochs=n_epochs, n_updates=n_updates,
+        tr_cost=tr_cost, va_cost=va_cost,
+        tr_acc=tr_acc, va_acc=va_acc
+    )
     print('%d %d %.3f %.3f %.2f %.2f' % (n_epochs, n_updates, tr_cost, va_cost, tr_acc, va_acc))
     if submit:
         score = va_acc
@@ -100,7 +103,7 @@ def predict(dataset, submission_dir):
         predictions = [label_decoder[prediction] for prediction in predictions]
     path = os.path.join(submission_dir, filename)
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, 'w') as f:
+    with open(path, 'w', encoding="utf8") as f:
         f.write('{}\t{}\n'.format('index', 'prediction'))
         for i, prediction in enumerate(predictions):
             f.write('{}\t{}\n'.format(i, prediction))
@@ -121,10 +124,8 @@ def run_epoch():
             log(save_dir, desc)
 
 
-argmax = lambda x: np.argmax(x, 1)
-
 pred_fns = {
-    'rocstories': argmax,
+    'rocstories': lambda x: np.argmax(x, 1),
 }
 
 filenames = {
@@ -195,7 +196,7 @@ if __name__ == '__main__':
     n_gpu = torch.cuda.device_count()
     print("device", device, "n_gpu", n_gpu)
 
-    logger = ResultLogger(path=os.path.join(log_dir, '{}.jsonl'.format(desc)), **args.__dict__)
+    logger = ResultLogger(path=os.path.join(log_dir, f'{desc}.jsonl'), **args.__dict__)
     text_encoder = TextEncoder(args.encoder_path, args.bpe_path)
     encoder = text_encoder.encoder
     n_vocab = len(text_encoder.encoder)
@@ -203,8 +204,10 @@ if __name__ == '__main__':
     print("Encoding dataset...")
     ((trX1, trX2, trX3, trY),
      (vaX1, vaX2, vaX3, vaY),
-     (teX1, teX2, teX3)) = encode_dataset(*rocstories(data_dir, n_valid=args.n_valid),
-                                          encoder=text_encoder)
+     (teX1, teX2, teX3)) = encode_dataset(
+        *rocstories(data_dir, n_valid=args.n_valid),
+        encoder=text_encoder
+    )
     encoder['_start_'] = len(encoder)
     encoder['_delimiter_'] = len(encoder)
     encoder['_classify_'] = len(encoder)
@@ -251,7 +254,7 @@ if __name__ == '__main__':
     load_openai_pretrained_model(dh_model.transformer, n_ctx=n_ctx, n_special=n_special)
 
     dh_model.to(device)
-    dh_model = nn.DataParallel(dh_model)
+    dh_model2 = nn.DataParallel(dh_model)
 
     n_updates = 0
     n_epochs = 0
@@ -259,7 +262,7 @@ if __name__ == '__main__':
         trYt = trY
     if submit:
         path = os.path.join(save_dir, desc, 'best_params')
-        torch.save(dh_model.state_dict(), make_path(path))
+        torch.save(dh_model2.state_dict(), make_path(path))
     best_score = 0
     for i in range(args.n_iter):
         print("running epoch", i)
@@ -268,7 +271,7 @@ if __name__ == '__main__':
         log(save_dir, desc)
     if submit:
         path = os.path.join(save_dir, desc, 'best_params')
-        dh_model.load_state_dict(torch.load(path))
+        dh_model2.load_state_dict(torch.load(path))
         predict(dataset, args.submission_dir)
         if args.analysis:
             rocstories_analysis(data_dir, os.path.join(args.submission_dir, 'ROCStories.tsv'),
